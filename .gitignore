@@ -28,6 +28,10 @@ db/champions.db
 # PokeAPI キャッシュ（再取得可能）
 data/pokeapi_cache/
 
+# HTML生成スクリプトの中間ファイル（再生成可能）
+data/_tmp_*.json
+data/_tmp_*.js
+
 # パース済みデータ・リプレイデータ（プライベート・大容量）
 data/parsed/
 data/replays/
