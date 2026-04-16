@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Champions AI 対戦ナビゲーター</title>
+<style>
+:root {
+  --bg:        #0f1117;
+  --bg2:       #1a1d27;
+  --bg3:       #242838;
+  --border:    #2e3348;
+  --accent:    #4f8ef7;
+  --accent2:   #7c5cfc;
+  --green:     #34c97a;
+  --yellow:    #f5a623;
+  --red:       #e85d75;
+  --text:      #e8eaf0;
+  --text2:     #8b90a7;
+  --text3:     #5a5f76;
+  --radius:    10px;
+  --shadow:    0 4px 20px rgba(0,0,0,0.4);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Hiragino Sans', 'Meiryo', sans-serif; font-size: 14px; min-height: 100vh; }
+
+/* ─── ヘッダー ─── */
+header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
+header h1 { font-size: 16px; font-weight: 700; color: var(--text); flex: 1; letter-spacing: 0.5px; }
+header h1 span { color: var(--accent); }
+#api-url-display { font-size: 12px; color: var(--text3); cursor: pointer; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; transition: border-color .2s; }
+#api-url-display:hover { border-color: var(--accent); color: var(--text2); }
+
+/* ─── ステップ表示 ─── */
+.steps { display: flex; gap: 0; overflow: hidden; }
+.step { display: flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 12px; color: var(--text3); cursor: default; position: relative; }
+.step::after { content: '›'; margin-left: 6px; color: var(--text3); }
+.step:last-child::after { display: none; }
+.step.active { color: var(--accent); font-weight: 700; }
+.step.done { color: var(--green); }
+.step-num { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+
+/* ─── メインコンテンツ ─── */
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* ─── カード ─── */
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+.card-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.card-title .badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: var(--accent); color: #fff; }
+
+/* ─── フォーム部品 ─── */
+label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 4px; }
+input[type=text], input[type=number], select, textarea {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); padding: 7px 10px; font-size: 13px; width: 100%;
+  transition: border-color .2s; font-family: inherit;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+input[type=number] { -moz-appearance: textfield; }
+input[type=number]::-webkit-inner-spin-button { display: none; }
+
+select option { background: var(--bg3); }
+
+.grid { display: grid; gap: 10px; }
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-6 { grid-template-columns: repeat(6, 1fr); }
+
+.field { display: flex; flex-direction: column; gap: 4px; }
+
+/* ─── ボタン ─── */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 22px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s; font-family: inherit; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #3a7de8; transform: translateY(-1px); }
+.btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-success { background: var(--green); color: #fff; }
+.btn-success:hover { background: #28b06a; }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-sm { padding: 6px 14px; font-size: 12px; }
+
+.btn-row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* ─── ポケモンアコーディオン ─── */
+.poke-slot { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 8px; }
+.poke-slot-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; user-select: none; transition: background .15s; }
+.poke-slot-header:hover { background: var(--bg3); }
+.slot-num { width: 24px; height: 24px; background: var(--bg3); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--text2); flex-shrink: 0; }
+.slot-summary { flex: 1; font-size: 13px; color: var(--text2); }
+.slot-summary strong { color: var(--text); }
+.slot-expand { color: var(--text3); transition: transform .2s; }
+.poke-slot.open .slot-expand { transform: rotate(90deg); }
+.poke-slot-body { display: none; padding: 16px; border-top: 1px solid var(--border); background: var(--bg3); }
+.poke-slot.open .poke-slot-body { display: block; }
+
+.ev-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.ev-label { font-size: 10px; text-align: center; color: var(--text3); margin-bottom: 2px; }
+.moves-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+
+/* ─── 選出推薦 ─── */
+.selection-result { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-top: 16px; }
+.selection-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.pill { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; background: var(--bg2); border: 1px solid var(--border); }
+.pill.lead { border-color: var(--accent); color: var(--accent); }
+.score-bars { margin-top: 12px; }
+.score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.score-name { width: 90px; font-size: 12px; color: var(--text); flex-shrink: 0; }
+.score-bar-wrap { flex: 1; background: var(--bg2); border-radius: 4px; height: 8px; overflow: hidden; }
+.score-bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width .6s ease; }
+.score-val { width: 30px; font-size: 11px; color: var(--text2); text-align: right; }
+
+/* ─── バトル画面レイアウト ─── */
+.battle-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 700px) { .battle-layout { grid-template-columns: 1fr; } }
+
+/* ─── 状態バー ─── */
+.state-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.turn-badge { background: var(--accent); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 700; }
+.matchup { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 0; }
+.pokemon-box { text-align: center; flex: 1; }
+.pokemon-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.hp-bar-wrap { background: var(--bg3); height: 8px; border-radius: 4px; overflow: hidden; margin: 4px 0; }
+.hp-bar { height: 100%; border-radius: 4px; transition: width .4s; }
+.hp-bar.high { background: var(--green); }
+.hp-bar.mid  { background: var(--yellow); }
+.hp-bar.low  { background: var(--red); }
+.hp-text { font-size: 12px; color: var(--text2); }
+.vs-badge { color: var(--text3); font-size: 18px; font-weight: 700; padding: 0 8px; }
+
+/* ─── ターン入力フォーム ─── */
+.turn-section { margin-bottom: 14px; }
+.turn-section-title { font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.toggle-section { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 4px 0; color: var(--text3); font-size: 12px; }
+.toggle-section input { width: auto; }
+.collapsible { display: none; padding-top: 8px; }
+.collapsible.open { display: block; }
+
+/* ─── 推薦カード ─── */
+.rec-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; transition: border-color .2s; }
+.rec-card:hover { border-color: var(--accent); }
+.rec-card.rank-1 { border-color: var(--accent); }
+.rec-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.rec-rank { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.rec-rank.r1 { background: var(--accent); color: #fff; }
+.rec-rank.r2 { background: var(--bg2); color: var(--text2); border: 1px solid var(--border); }
+.rec-rank.r3 { background: var(--bg2); color: var(--text2); border: 1px solid var(--border); }
+.rec-action { font-size: 15px; font-weight: 700; flex: 1; }
+.rec-cat { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--bg2); color: var(--text2); border: 1px solid var(--border); }
+.conf-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.conf-bar-wrap { flex: 1; background: var(--bg2); height: 6px; border-radius: 3px; overflow: hidden; }
+.conf-bar { height: 100%; border-radius: 3px; transition: width .6s ease; }
+.conf-bar.high { background: var(--green); }
+.conf-bar.mid  { background: var(--yellow); }
+.conf-bar.low  { background: var(--red); }
+.conf-pct { font-size: 13px; font-weight: 700; width: 42px; text-align: right; }
+.conf-pct.high { color: var(--green); }
+.conf-pct.mid  { color: var(--yellow); }
+.conf-pct.low  { color: var(--red); }
+.rec-reason { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
+/* ─── 相手推測パネル ─── */
+.estimate-panel { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.estimate-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+.estimate-row:last-child { border-bottom: none; }
+.est-label { font-size: 11px; color: var(--text3); width: 70px; flex-shrink: 0; }
+.est-value { font-size: 13px; color: var(--text); flex: 1; }
+.est-badge { font-size: 11px; padding: 2px 7px; border-radius: 10px; background: var(--yellow); color: #1a1d27; font-weight: 700; }
+.est-badge.confirmed { background: var(--green); }
+
+/* ─── 設定モーダル ─── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; min-width: 320px; box-shadow: var(--shadow); }
+.modal h3 { margin-bottom: 16px; font-size: 15px; }
+.modal .btn-row { margin-top: 16px; }
+
+/* ─── その他 ─── */
+.tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+.text-muted { color: var(--text3); font-size: 12px; }
+.notice { background: rgba(79,142,247,0.1); border: 1px solid rgba(79,142,247,0.3); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--text2); margin-bottom: 12px; }
+.warning { background: rgba(245,166,35,0.1); border: 1px solid rgba(245,166,35,0.3); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--yellow); }
+.empty-state { text-align: center; padding: 40px; color: var(--text3); }
+.opp-revealed { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.opp-poke-tag { font-size: 12px; padding: 3px 10px; border-radius: 6px; background: var(--bg3); border: 1px solid var(--border); }
+.log-area { background: var(--bg); border-radius: 6px; padding: 10px; max-height: 150px; overflow-y: auto; font-size: 12px; color: var(--text2); font-family: monospace; }
+.log-entry { padding: 2px 0; border-bottom: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<!-- ─── 設定モーダル ─── -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <h3>⚙ API 設定</h3>
+    <div class="field">
+      <label>API サーバー URL</label>
+      <input type="text" id="settings-api-url" placeholder="http://localhost:8001">
+    </div>
+    <div class="btn-row" style="margin-top:16px;">
+      <button class="btn btn-secondary" onclick="closeSettings()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── ヘッダー ─── -->
+<header>
+  <h1>Champions <span>AI</span> 対戦ナビゲーター</h1>
+  <div class="steps" id="steps-display">
+    <div class="step active" id="step-ind-1"><span class="step-num">1</span> パーティ設定</div>
+    <div class="step" id="step-ind-2"><span class="step-num">2</span> 相手パーティ</div>
+    <div class="step" id="step-ind-3"><span class="step-num">3</span> 選出確定</div>
+    <div class="step" id="step-ind-4"><span class="step-num">4</span> バトル</div>
+  </div>
+  <div id="api-url-display" onclick="openSettings()">⚙ http://localhost:8001</div>
+</header>
+
+<main>
+
+<!-- ══════════════════════════════════════════
+     STEP 1: パーティ設定
+══════════════════════════════════════════ -->
+<div class="page active" id="page-1">
+  <div class="card">
+    <div class="card-title">自分のパーティ設定 <span class="badge">最大6体</span></div>
+    <p class="text-muted" style="margin-bottom:16px;">バトルで使用するポケモンの情報を入力してください。バトルで使わない枠は空欄でも構いません。</p>
+    <div id="party-slots"></div>
+    <div class="notice" style="margin-top:4px; padding:8px 14px; font-size:12px;">
+      使用しない枠は空欄のままで構いません。ポケモン名（日本語）が入力された枠のみ登録されます。
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="submitParty()">次へ：相手パーティ入力 →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STEP 2: 相手パーティ入力
+══════════════════════════════════════════ -->
+<div class="page" id="page-2">
+  <div class="card">
+    <div class="card-title">相手のパーティ入力 <span class="badge">6体</span></div>
+    <p class="text-muted" style="margin-bottom:16px;">相手の選出前に確認できる6体を入力してください（日本語名）。</p>
+    <div class="grid grid-2" id="opp-party-inputs">
+      <div class="field"><label>相手1体目</label><input type="text" id="opp0" placeholder="例: カイリュー"></div>
+      <div class="field"><label>相手2体目</label><input type="text" id="opp1" placeholder="例: ドヒドイデ"></div>
+      <div class="field"><label>相手3体目</label><input type="text" id="opp2" placeholder="例: テッカグヤ"></div>
+      <div class="field"><label>相手4体目</label><input type="text" id="opp3" placeholder="例: ミミッキュ"></div>
+      <div class="field"><label>相手5体目</label><input type="text" id="opp4" placeholder="例: ウーラオス"></div>
+      <div class="field"><label>相手6体目</label><input type="text" id="opp5" placeholder="例: トゲキッス"></div>
+    </div>
+    <div id="selection-result-area" style="display:none;">
+      <hr class="divider">
+      <div class="card-title" style="margin-bottom:10px;">AIによる選出推薦</div>
+      <div class="selection-result" id="selection-result-box"></div>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="goStep(1)">← 戻る</button>
+    <button class="btn btn-primary" onclick="submitOpponent()">選出推薦を取得</button>
+    <button class="btn btn-success" id="goto-step3-btn" style="display:none;" onclick="goStep(3)">次へ：選出確定 →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STEP 3: 選出確定
+══════════════════════════════════════════ -->
+<div class="page" id="page-3">
+  <div class="card">
+    <div class="card-title">選出確定</div>
+    <p class="text-muted" style="margin-bottom:16px;">バトルに出す3体とお互いの先頭ポケモンを確定してください。</p>
+    <div class="grid grid-3" style="margin-bottom:16px;">
+      <div class="field">
+        <label>選出1体目 ★リード候補</label>
+        <select id="sel0"><option value="">選択してください</option></select>
+      </div>
+      <div class="field">
+        <label>選出2体目</label>
+        <select id="sel1"><option value="">選択してください</option></select>
+      </div>
+      <div class="field">
+        <label>選出3体目</label>
+        <select id="sel2"><option value="">選択してください</option></select>
+      </div>
+    </div>
+    <div class="grid grid-2">
+      <div class="field">
+        <label>自分のリード（先頭に出すポケモン）</label>
+        <select id="lead-my"><option value="">選択してください</option></select>
+      </div>
+      <div class="field">
+        <label>相手のリード（先頭ポケモン）</label>
+        <select id="lead-opp"><option value="">選択してください</option></select>
+      </div>
+    </div>
+    <div id="sel-notice" class="notice" style="margin-top:14px; display:none;"></div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="goStep(2)">← 戻る</button>
+    <button class="btn btn-success" onclick="startBattle()">⚔ バトル開始！</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STEP 4: バトル画面
+══════════════════════════════════════════ -->
+<div class="page" id="page-4">
+
+  <!-- 対戦状況バー -->
+  <div class="card" style="margin-bottom:12px; padding:14px 20px;">
+    <div class="state-header">
+      <div class="turn-badge" id="turn-badge">ターン 1</div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span class="text-muted" id="alive-info">自 3体 / 相手判明 1体</span>
+        <button class="btn btn-secondary btn-sm" onclick="endBattle()">バトル終了</button>
+      </div>
+    </div>
+    <div class="matchup">
+      <div class="pokemon-box">
+        <div class="pokemon-name" id="my-active-name">-</div>
+        <div class="hp-bar-wrap"><div class="hp-bar high" id="my-hp-bar" style="width:100%"></div></div>
+        <div class="hp-text" id="my-hp-text">HP: -</div>
+        <div id="my-status-badge"></div>
+      </div>
+      <div class="vs-badge">VS</div>
+      <div class="pokemon-box">
+        <div class="pokemon-name" id="opp-active-name">-</div>
+        <div class="hp-bar-wrap"><div class="hp-bar high" id="opp-hp-bar" style="width:100%"></div></div>
+        <div class="hp-text" id="opp-hp-text">残HP: -</div>
+        <div id="opp-status-badge"></div>
+      </div>
+    </div>
+    <div>
+      <div class="text-muted" style="font-size:11px; margin-bottom:4px;">判明した相手のポケモン</div>
+      <div class="opp-revealed" id="opp-revealed-list"></div>
+    </div>
+  </div>
+
+  <div class="battle-layout">
+
+    <!-- 左: ターン入力 -->
+    <div>
+      <div class="card">
+        <div class="card-title">ターン入力</div>
+
+        <!-- 特性発動 -->
+        <div class="turn-section">
+          <div class="turn-section-title">特性発動（任意）</div>
+          <label class="toggle-section"><input type="checkbox" id="has-ability" onchange="toggleAbility()"> 特性が発動した</label>
+          <div class="collapsible" id="ability-section">
+            <div class="grid grid-2" style="margin-top:6px;">
+              <div class="field"><label>発動プレイヤー</label>
+                <select id="ab-player"><option value="p2">相手</option><option value="p1">自分</option></select></div>
+              <div class="field"><label>特性名</label><input type="text" id="ab-name" placeholder="例: いかく"></div>
+            </div>
+            <div class="field" style="margin-top:6px;"><label>発動ポケモン名</label><input type="text" id="ab-poke" placeholder="例: カイリュー"></div>
+            <div style="font-size:11px; color:var(--text3); margin-top:4px;">複数発動した場合は送信後に追加入力してください</div>
+          </div>
+        </div>
+
+        <!-- 交代 -->
+        <div class="turn-section">
+          <div class="turn-section-title">交代（任意）</div>
+          <div class="grid grid-2">
+            <div>
+              <label class="toggle-section"><input type="checkbox" id="has-my-switch" onchange="toggleMySwitch()"> 自分が交代した</label>
+              <div class="collapsible" id="my-switch-section">
+                <select id="my-switch-to" style="margin-top:6px;"><option value="">交代先を選択</option></select>
+              </div>
+            </div>
+            <div>
+              <label class="toggle-section"><input type="checkbox" id="has-opp-switch" onchange="toggleOppSwitch()"> 相手が交代した</label>
+              <div class="collapsible" id="opp-switch-section">
+                <input type="text" id="opp-switch-to" placeholder="交代先のポケモン名" style="margin-top:6px;">
+                <div class="text-muted" style="margin-top:4px;">初出ポケモンは自動で相手選出に追加されます</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 相手への与ダメージ -->
+        <div class="turn-section">
+          <div class="turn-section-title">ターン終了後の状態</div>
+          <div class="grid grid-2">
+            <div class="field">
+              <label>相手の残HP（%）</label>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <input type="range" id="opp-hp-slider" min="0" max="100" value="100"
+                  oninput="document.getElementById('opp-hp-num').value=this.value; updateOppHpBar(this.value)"
+                  style="flex:1; width:auto; padding:0; background:transparent; border:none;">
+                <input type="number" id="opp-hp-num" min="0" max="100" value="100" style="width:60px;"
+                  oninput="document.getElementById('opp-hp-slider').value=this.value; updateOppHpBar(this.value)">
+                <span class="text-muted">%</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>自分の残HP（実数値）</label>
+              <input type="number" id="my-hp-input" min="0" placeholder="例: 212">
+            </div>
+          </div>
+          <div class="grid grid-2" style="margin-top:8px;">
+            <div class="field">
+              <label>自分の状態異常変化</label>
+              <select id="my-status-change">
+                <option value="">変化なし</option>
+                <option value="par">まひ</option>
+                <option value="brn">やけど</option>
+                <option value="slp">ねむり</option>
+                <option value="psn">どく</option>
+                <option value="tox">もうどく</option>
+                <option value="frz">こおり</option>
+                <option value="none">回復（状態異常なし）</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>相手の状態異常変化</label>
+              <select id="opp-status-change">
+                <option value="">変化なし</option>
+                <option value="par">まひ</option>
+                <option value="brn">やけど</option>
+                <option value="slp">ねむり</option>
+                <option value="psn">どく</option>
+                <option value="tox">もうどく</option>
+                <option value="frz">こおり</option>
+                <option value="none">回復（状態異常なし）</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 相手の行動 -->
+        <div class="turn-section">
+          <div class="turn-section-title">相手の行動</div>
+          <div class="grid grid-2">
+            <div class="field">
+              <label>相手が使用した技</label>
+              <input type="text" id="opp-move" placeholder="例: ダブルウイング">
+            </div>
+            <div class="field">
+              <label>技を受けた後の自分の残HP（実数値）</label>
+              <input type="number" id="opp-move-my-hp" placeholder="例: 150">
+            </div>
+          </div>
+        </div>
+
+        <!-- アイテム発動 -->
+        <div class="turn-section">
+          <div class="turn-section-title">アイテム発動（任意）</div>
+          <div class="grid grid-2">
+            <div class="field">
+              <label>自分のアイテム消費</label>
+              <input type="text" id="my-item-used" placeholder="例: オボンのみ">
+            </div>
+            <div class="field">
+              <label>相手のアイテム発動</label>
+              <input type="text" id="opp-item-used" placeholder="例: きのみ、チョッキ等">
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-row" style="margin-top:4px;">
+          <button class="btn btn-primary" onclick="submitTurn()">推薦を取得 →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右: 推薦・相手情報 -->
+    <div>
+      <!-- 行動推薦 -->
+      <div class="card" style="margin-bottom:12px;">
+        <div class="card-title">行動推薦</div>
+        <div id="rec-area">
+          <div class="empty-state">
+            <div style="font-size:32px; margin-bottom:8px;">⚔</div>
+            <div>ターン情報を入力して<br>「推薦を取得」を押してください</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 相手推測 -->
+      <div class="card" style="margin-bottom:12px;">
+        <div class="card-title">相手ポケモンの推測情報</div>
+        <div id="opp-estimate-area">
+          <div class="empty-state" style="padding:20px;">まだ情報がありません</div>
+        </div>
+      </div>
+
+      <!-- 行動ログ -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:8px;">行動ログ</div>
+        <div class="log-area" id="action-log"></div>
+      </div>
+    </div>
+
+  </div><!-- /battle-layout -->
+</div><!-- /page-4 -->
+
+</main>
+
+<script>
+// ═══════════════════════════════════
+//  設定・状態
+// ═══════════════════════════════════
+let API_URL = localStorage.getItem('nav_api_url') || 'http://localhost:8001';
+document.getElementById('api-url-display').textContent = '⚙ ' + API_URL;
+document.getElementById('settings-api-url').value = API_URL;
+
+let currentStep = 1;
+let myPartyData = [];    // 登録したパーティ
+let oppPartyNames = [];  // 相手パーティ
+let selectionRec = null; // 選出推薦
+let battleState = {      // バトル中の状態
+  turn: 0,
+  myActive: '', myMaxHp: 0, myCurrentHp: 0,
+  oppActive: '', oppHpPct: 100,
+};
+let turnNum = 1;
+let logEntries = [];
+
+// ─── 性格リスト ───
+const NATURES = [
+  'がんばりや','さみしがり','ゆうかん','いじっぱり','やんちゃ',
+  'ずぶとい','すなお','のんき','わんぱく','いやしんぼ',
+  'おくびょう','せっかち','まじめ','ようき','むじゃき',
+  'ひかえめ','おっとり','れいせい','てれや','うっかりや',
+  'おだやか','おとなしい','なまいき','しんちょう','きまぐれ',
+];
+const NATURE_LABELS = {
+  'がんばりや':'無補正','さみしがり':'A↑B↓','ゆうかん':'A↑S↓','いじっぱり':'A↑C↓','やんちゃ':'A↑D↓',
+  'ずぶとい':'B↑A↓','すなお':'無補正','のんき':'B↑S↓','わんぱく':'B↑C↓','いやしんぼ':'B↑D↓',
+  'おくびょう':'S↑A↓','せっかち':'S↑B↓','まじめ':'無補正','ようき':'S↑C↓','むじゃき':'S↑D↓',
+  'ひかえめ':'C↑A↓','おっとり':'C↑B↓','れいせい':'C↑S↓','てれや':'無補正','うっかりや':'C↑D↓',
+  'おだやか':'D↑A↓','おとなしい':'D↑B↓','なまいき':'D↑S↓','しんちょう':'D↑C↓','きまぐれ':'無補正',
+};
+
+// ═══════════════════════════════════
+//  API 通信
+// ═══════════════════════════════════
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  try {
+    const res = await fetch(API_URL + path, opts);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || res.statusText);
+    }
+    return await res.json();
+  } catch(e) {
+    if (e instanceof TypeError) throw new Error('サーバーに接続できません。APIサーバーが起動しているか確認してください。');
+    throw e;
+  }
+}
+
+function showError(msg) {
+  alert('エラー: ' + msg);
+}
+
+// ═══════════════════════════════════
+//  設定モーダル
+// ═══════════════════════════════════
+function openSettings() {
+  document.getElementById('settings-api-url').value = API_URL;
+  document.getElementById('settings-modal').classList.add('open');
+}
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('open');
+}
+function saveSettings() {
+  API_URL = document.getElementById('settings-api-url').value.replace(/\/$/, '');
+  localStorage.setItem('nav_api_url', API_URL);
+  document.getElementById('api-url-display').textContent = '⚙ ' + API_URL;
+  closeSettings();
+}
+
+// ═══════════════════════════════════
+//  ステップ管理
+// ═══════════════════════════════════
+function goStep(n) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+n).classList.add('active');
+  for(let i=1;i<=4;i++){
+    const el = document.getElementById('step-ind-'+i);
+    el.className = 'step' + (i===n?' active':(i<n?' done':''));
+  }
+  currentStep = n;
+}
+
+// ═══════════════════════════════════
+//  STEP 1: パーティスロット
+// ═══════════════════════════════════
+let slotCount = 0;
+
+function buildNatureSelect(id, defaultVal='まじめ') {
+  let opts = NATURES.map(n =>
+    `<option value="${n}" ${n===defaultVal?'selected':''}>${n}（${NATURE_LABELS[n]}）</option>`
+  ).join('');
+  return `<select id="${id}">${opts}</select>`;
+}
+
+function addPokeSlot() {
+  if (slotCount >= 6) { alert('パーティは最大6体です'); return; }
+  const i = slotCount++;
+  const container = document.getElementById('party-slots');
+  const div = document.createElement('div');
+  div.className = 'poke-slot';
+  div.id = `slot-${i}`;
+  div.innerHTML = `
+    <div class="poke-slot-header" onclick="toggleSlot(${i})">
+      <div class="slot-num">${i+1}</div>
+      <div class="slot-summary" id="slot-summary-${i}">
+        <span style="color:var(--text3)">クリックして入力</span>
+      </div>
+      <div class="slot-expand">›</div>
+    </div>
+    <div class="poke-slot-body">
+      <div class="grid grid-2" style="margin-bottom:10px;">
+        <div class="field"><label>ポケモン名（日本語）</label>
+          <input type="text" id="poke-namejp-${i}" placeholder="例: ガブリアス" oninput="updateSlotSummary(${i})"></div>
+        <div class="field"><label>ポケモン名（英語）</label>
+          <input type="text" id="poke-nameen-${i}" placeholder="例: garchomp"></div>
+      </div>
+      <div class="grid grid-3" style="margin-bottom:10px;">
+        <div class="field"><label>持ち物</label>
+          <input type="text" id="poke-item-${i}" placeholder="例: こだわりスカーフ"></div>
+        <div class="field"><label>特性</label>
+          <input type="text" id="poke-ability-${i}" placeholder="例: さめはだ"></div>
+        <div class="field"><label>性別</label>
+          <select id="poke-gender-${i}">
+            <option value="-">なし（-）</option>
+            <option value="♂">♂</option>
+            <option value="♀">♀</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div class="field"><label>性格</label>${buildNatureSelect(`poke-nature-${i}`)}</div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label style="margin-bottom:6px;">努力値（H/A/B/C/D/S）</label>
+        <div class="ev-row">
+          ${['H','A','B','C','D','S'].map(s=>`
+            <div>
+              <div class="ev-label">${s}</div>
+              <input type="number" id="poke-ev-${s}-${i}" min="0" max="252" value="0" placeholder="0">
+            </div>`).join('')}
+        </div>
+        <div class="text-muted" style="margin-top:4px;">合計510まで（入力必須ではありません）</div>
+      </div>
+      <div>
+        <label style="margin-bottom:6px;">技（最大4つ・日本語名）</label>
+        <div class="moves-row">
+          ${[1,2,3,4].map(m=>`
+            <div class="field">
+              <label>技${m}</label>
+              <input type="text" id="poke-move${m}-${i}" placeholder="例: じしん">
+            </div>`).join('')}
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="poke-mega-${i}" style="width:auto;">
+          メガシンカ可能
+        </label>
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+  toggleSlot(i); // 最初のスロットは展開
+}
+
+function toggleSlot(i) {
+  const slot = document.getElementById(`slot-${i}`);
+  slot.classList.toggle('open');
+}
+
+function updateSlotSummary(i) {
+  const name = document.getElementById(`poke-namejp-${i}`)?.value || '';
+  const item = document.getElementById(`poke-item-${i}`)?.value || '';
+  const sumEl = document.getElementById(`slot-summary-${i}`);
+  if (sumEl) {
+    sumEl.innerHTML = name
+      ? `<strong>${name}</strong>${item ? ' / '+item : ''}`
+      : '<span style="color:var(--text3)">クリックして入力</span>';
+  }
+}
+
+async function submitParty() {
+  const party = [];
+  for(let i=0;i<slotCount;i++){
+    const name_jp = document.getElementById(`poke-namejp-${i}`)?.value.trim();
+    if (!name_jp) continue;
+    party.push({
+      name_jp,
+      name_en: document.getElementById(`poke-nameen-${i}`)?.value.trim() || name_jp,
+      item:    document.getElementById(`poke-item-${i}`)?.value.trim() || null,
+      ability: document.getElementById(`poke-ability-${i}`)?.value.trim() || null,
+      gender:  document.getElementById(`poke-gender-${i}`)?.value || '-',
+      nature:  document.getElementById(`poke-nature-${i}`)?.value || 'まじめ',
+      evs: {
+        H: parseInt(document.getElementById(`poke-ev-H-${i}`)?.value)||0,
+        A: parseInt(document.getElementById(`poke-ev-A-${i}`)?.value)||0,
+        B: parseInt(document.getElementById(`poke-ev-B-${i}`)?.value)||0,
+        C: parseInt(document.getElementById(`poke-ev-C-${i}`)?.value)||0,
+        D: parseInt(document.getElementById(`poke-ev-D-${i}`)?.value)||0,
+        S: parseInt(document.getElementById(`poke-ev-S-${i}`)?.value)||0,
+      },
+      moves: [1,2,3,4].map(m=>document.getElementById(`poke-move${m}-${i}`)?.value.trim()||'').filter(Boolean),
+      can_mega: document.getElementById(`poke-mega-${i}`)?.checked||false,
+    });
+  }
+  if (party.length === 0) { showError('ポケモンを少なくとも1体入力してください'); return; }
+
+  try {
+    await api('/setup/party','POST',{my_party:party});
+    myPartyData = party;
+    goStep(2);
+  } catch(e) { showError(e.message); }
+}
+
+// ═══════════════════════════════════
+//  STEP 2: 相手パーティ
+// ═══════════════════════════════════
+async function submitOpponent() {
+  const names = [0,1,2,3,4,5].map(i=>document.getElementById('opp'+i)?.value.trim()).filter(Boolean);
+  if (names.length === 0) { showError('相手のポケモンを少なくとも1体入力してください'); return; }
+
+  try {
+    const result = await api('/setup/opponent','POST',{opponent_party:names});
+    oppPartyNames = names;
+    selectionRec = result;
+    showSelectionResult(result);
+    document.getElementById('selection-result-area').style.display='block';
+    document.getElementById('goto-step3-btn').style.display='';
+    // Step3 の選択肢を更新
+    updateStep3Selects(result);
+  } catch(e) { showError(e.message); }
+}
+
+function showSelectionResult(result) {
+  const box = document.getElementById('selection-result-box');
+  const maxScore = Math.max(...Object.values(result.scores));
+  box.innerHTML = `
+    <div class="text-muted" style="margin-bottom:8px;">AIが推薦する選出（スコア順）</div>
+    <div class="selection-pills">
+      ${result.selected.map(name=>`
+        <div class="pill ${name===result.lead?'lead':''}">
+          ${name===result.lead?'★ ':''}${name}
+        </div>`).join('')}
+    </div>
+    <div class="score-bars" style="margin-top:14px;">
+      ${Object.entries(result.scores).map(([name,score])=>`
+        <div class="score-row">
+          <div class="score-name">${name}</div>
+          <div class="score-bar-wrap"><div class="score-bar" style="width:${Math.round(score/maxScore*100)}%"></div></div>
+          <div class="score-val">${score.toFixed(1)}</div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin:-2px 0 6px 98px;">${result.reasons[name]||''}</div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════
+//  STEP 3: 選出確定
+// ═══════════════════════════════════
+function updateStep3Selects(rec) {
+  const myNames = myPartyData.map(p=>p.name_jp);
+  for(let i=0;i<3;i++){
+    const sel = document.getElementById(`sel${i}`);
+    sel.innerHTML = '<option value="">選択してください</option>' +
+      myNames.map(n=>`<option value="${n}" ${(rec?.selected[i]===n)?'selected':''}>${n}</option>`).join('');
+  }
+  // リード（自分）
+  const leadMy = document.getElementById('lead-my');
+  leadMy.innerHTML = '<option value="">選択してください</option>' +
+    myNames.map(n=>`<option value="${n}" ${rec?.lead===n?'selected':''}>${n}</option>`).join('');
+  // リード（相手）
+  const leadOpp = document.getElementById('lead-opp');
+  leadOpp.innerHTML = '<option value="">選択してください</option>' +
+    oppPartyNames.map(n=>`<option value="${n}">${n}</option>`).join('');
+  // 選出3変更時にリード候補も連動
+  ['sel0','sel1','sel2'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', syncLeadSelect);
+  });
+  syncLeadSelect();
+}
+
+function syncLeadSelect() {
+  const selected = ['sel0','sel1','sel2'].map(id=>document.getElementById(id).value).filter(Boolean);
+  const leadMy = document.getElementById('lead-my');
+  const cur = leadMy.value;
+  leadMy.innerHTML = '<option value="">選択してください</option>' +
+    selected.map(n=>`<option value="${n}" ${n===cur?'selected':''}>${n}</option>`).join('');
+}
+
+async function startBattle() {
+  const selected = ['sel0','sel1','sel2'].map(id=>document.getElementById(id).value).filter(Boolean);
+  const leadMy  = document.getElementById('lead-my').value;
+  const leadOpp = document.getElementById('lead-opp').value;
+
+  if (selected.length !== 3) { showError('3体選出してください'); return; }
+  if (!leadMy)  { showError('自分のリードを選択してください'); return; }
+  if (!leadOpp) { showError('相手のリードを選択してください'); return; }
+
+  try {
+    await api('/battle/start','POST',{ selected, lead_my: leadMy, lead_opp: leadOpp });
+    turnNum = 1;
+    battleState.myActive  = leadMy;
+    battleState.oppActive = leadOpp;
+    battleState.myMaxHp   = myPartyData.find(p=>p.name_jp===leadMy)?.evs ? 999 : 100;
+    // 自分のHP: ターン入力で更新
+    initBattleUI(leadMy, leadOpp, selected);
+    goStep(4);
+    addLog(`バトル開始: ${leadMy} vs ${leadOpp}`);
+  } catch(e) { showError(e.message); }
+}
+
+// ═══════════════════════════════════
+//  STEP 4: バトル UI
+// ═══════════════════════════════════
+function initBattleUI(myLead, oppLead, selected) {
+  document.getElementById('turn-badge').textContent = 'ターン 1';
+  document.getElementById('my-active-name').textContent = myLead;
+  document.getElementById('opp-active-name').textContent = oppLead;
+  document.getElementById('my-hp-bar').style.width = '100%';
+  document.getElementById('my-hp-bar').className = 'hp-bar high';
+  document.getElementById('opp-hp-bar').style.width = '100%';
+  document.getElementById('opp-hp-bar').className = 'hp-bar high';
+  document.getElementById('my-hp-text').textContent = 'HP: -';
+  document.getElementById('opp-hp-text').textContent = '残HP: 100%';
+  document.getElementById('opp-revealed-list').innerHTML =
+    `<span class="opp-poke-tag">${oppLead}</span>`;
+
+  // 自分の交代先選択肢を設定
+  const swSel = document.getElementById('my-switch-to');
+  swSel.innerHTML = '<option value="">交代先を選択</option>' +
+    selected.filter(n=>n!==myLead).map(n=>`<option value="${n}">${n}</option>`).join('');
+
+  // 相手HP スライダーを100に
+  document.getElementById('opp-hp-slider').value = 100;
+  document.getElementById('opp-hp-num').value = 100;
+  document.getElementById('alive-info').textContent = `自 ${selected.length}体 / 相手判明 1体`;
+}
+
+function updateOppHpBar(pct) {
+  const bar = document.getElementById('opp-hp-bar');
+  bar.style.width = pct + '%';
+  bar.className = 'hp-bar ' + (pct>50?'high':pct>25?'mid':'low');
+}
+
+function toggleAbility()    { document.getElementById('ability-section').classList.toggle('open', document.getElementById('has-ability').checked); }
+function toggleMySwitch()   { document.getElementById('my-switch-section').classList.toggle('open', document.getElementById('has-my-switch').checked); }
+function toggleOppSwitch()  { document.getElementById('opp-switch-section').classList.toggle('open', document.getElementById('has-opp-switch').checked); }
+
+async function submitTurn() {
+  const body = { turn: turnNum };
+
+  // 特性発動
+  if (document.getElementById('has-ability').checked) {
+    body.ability_activations = [{
+      player:  document.getElementById('ab-player').value,
+      ability: document.getElementById('ab-name').value.trim(),
+      pokemon: document.getElementById('ab-poke').value.trim(),
+    }];
+  } else { body.ability_activations = []; }
+
+  // 自分の交代
+  if (document.getElementById('has-my-switch').checked) {
+    body.my_switch = document.getElementById('my-switch-to').value || null;
+  }
+  // 相手の交代
+  if (document.getElementById('has-opp-switch').checked) {
+    body.opponent_switch = document.getElementById('opp-switch-to').value.trim() || null;
+  }
+
+  // HP
+  const oppHp = parseInt(document.getElementById('opp-hp-num').value);
+  const myHpAfter = parseInt(document.getElementById('my-hp-input').value);
+  if (!isNaN(oppHp)) body.opponent_hp_pct = oppHp;
+  if (!isNaN(myHpAfter)) body.my_hp_after = myHpAfter;
+
+  // 状態異常
+  const mySt  = document.getElementById('my-status-change').value;
+  const oppSt = document.getElementById('opp-status-change').value;
+  if (mySt)  body.my_status       = mySt;
+  if (oppSt) body.opponent_status = oppSt;
+
+  // 相手の行動
+  const oppMove  = document.getElementById('opp-move').value.trim();
+  const oppMoveHp = parseInt(document.getElementById('opp-move-my-hp').value);
+  if (oppMove || !isNaN(oppMoveHp)) {
+    body.opponent_action = {};
+    if (oppMove) body.opponent_action.move = oppMove;
+    if (!isNaN(oppMoveHp)) body.opponent_action.my_hp_after = oppMoveHp;
+  }
+
+  // アイテム
+  const myItem  = document.getElementById('my-item-used').value.trim();
+  const oppItem = document.getElementById('opp-item-used').value.trim();
+  if (myItem)  body.my_item_consumed         = myItem;
+  if (oppItem) body.opponent_item_activated  = oppItem;
+
+  try {
+    const out = await api('/battle/turn','POST', body);
+    renderRecommendations(out.recommendations);
+    renderOpponentEstimate(out.opponent_estimate);
+    updateBattleStateFromOutput(out, body);
+    addLog(`T${turnNum}: ${out.battle_state_summary}`);
+    turnNum++;
+    document.getElementById('turn-badge').textContent = 'ターン ' + turnNum;
+    clearTurnForm();
+  } catch(e) { showError(e.message); }
+}
+
+function renderRecommendations(recs) {
+  if (!recs || recs.length === 0) {
+    document.getElementById('rec-area').innerHTML = '<div class="empty-state">推薦が取得できませんでした</div>';
+    return;
+  }
+  const html = recs.map((r, idx) => {
+    const rank = idx + 1;
+    const conf = r.confidence;
+    const cls  = conf >= 50 ? 'high' : conf >= 25 ? 'mid' : 'low';
+    return `
+      <div class="rec-card ${rank===1?'rank-1':''}">
+        <div class="rec-header">
+          <div class="rec-rank r${rank}">${rank}</div>
+          <div class="rec-action">${r.action}</div>
+          <div class="rec-cat">${r.category}</div>
+        </div>
+        <div class="conf-wrap">
+          <div class="conf-bar-wrap"><div class="conf-bar ${cls}" style="width:${conf}%"></div></div>
+          <div class="conf-pct ${cls}">${conf.toFixed(1)}%</div>
+        </div>
+        <div class="rec-reason">${r.reason}</div>
+      </div>`;
+  }).join('');
+  document.getElementById('rec-area').innerHTML = html;
+}
+
+function renderOpponentEstimate(est) {
+  if (!est) return;
+  const noInfo = !est.item && !est.speed_tier && !est.bulk_tendency;
+  if (noInfo) {
+    document.getElementById('opp-estimate-area').innerHTML = '<div class="empty-state" style="padding:20px;">まだ情報が蓄積されていません</div>';
+    return;
+  }
+  const rows = [];
+  if (est.item) {
+    const conf = Math.round((est.item_confidence||0)*100);
+    const confirmed = est.item_confidence >= 1.0;
+    rows.push(`
+      <div class="estimate-row">
+        <div class="est-label">持ち物</div>
+        <div class="est-value">${est.item}</div>
+        <div class="est-badge ${confirmed?'confirmed':''}">${confirmed?'確定':conf+'%推測'}</div>
+      </div>`);
+  }
+  if (est.is_choice_item) {
+    rows.push(`
+      <div class="estimate-row">
+        <div class="est-label">こだわり</div>
+        <div class="est-value">疑い${est.choice_move?'：縛り技「'+est.choice_move+'」':''}</div>
+        <div class="est-badge">⚠</div>
+      </div>`);
+  }
+  if (est.speed_tier) {
+    rows.push(`
+      <div class="estimate-row">
+        <div class="est-label">素早さ</div>
+        <div class="est-value">${est.speed_tier}</div>
+      </div>`);
+  }
+  if (est.bulk_tendency) {
+    rows.push(`
+      <div class="estimate-row">
+        <div class="est-label">耐久</div>
+        <div class="est-value">${est.bulk_tendency}</div>
+      </div>`);
+  }
+  document.getElementById('opp-estimate-area').innerHTML = `<div class="estimate-panel">${rows.join('')}</div>`;
+}
+
+function updateBattleStateFromOutput(out, inputBody) {
+  // 自分のHP更新
+  if (inputBody.my_hp_after !== undefined) {
+    const poke = myPartyData.find(p=>p.name_jp===battleState.myActive);
+    if (!battleState.myMaxHp || battleState.myMaxHp===999) {
+      // 最大HPが不明な場合は表示のみ
+      document.getElementById('my-hp-text').textContent = `HP: ${inputBody.my_hp_after}`;
+    } else {
+      const pct = Math.round(inputBody.my_hp_after / battleState.myMaxHp * 100);
+      document.getElementById('my-hp-text').textContent = `HP: ${inputBody.my_hp_after}/${battleState.myMaxHp} (${pct}%)`;
+      const bar = document.getElementById('my-hp-bar');
+      bar.style.width = pct + '%';
+      bar.className = 'hp-bar ' + (pct>50?'high':pct>25?'mid':'low');
+    }
+  }
+  // 相手HP
+  if (inputBody.opponent_hp_pct !== undefined) {
+    const pct = inputBody.opponent_hp_pct;
+    document.getElementById('opp-hp-text').textContent = `残HP: ${pct}%`;
+    updateOppHpBar(pct);
+  }
+  // 交代
+  if (inputBody.my_switch) {
+    battleState.myActive = inputBody.my_switch;
+    document.getElementById('my-active-name').textContent = inputBody.my_switch;
+    // 交代先の新しい選択肢を設定
+    const sel = document.getElementById('my-switch-to');
+    const cur = Array.from(sel.options).map(o=>o.value).filter(Boolean);
+    if (!cur.includes(battleState.myActive)) {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = battleState.myActive;
+      sel.appendChild(opt);
+    }
+  }
+  if (inputBody.opponent_switch) {
+    battleState.oppActive = inputBody.opponent_switch;
+    document.getElementById('opp-active-name').textContent = inputBody.opponent_switch;
+    // 相手の既出リストに追加
+    const list = document.getElementById('opp-revealed-list');
+    if (!list.querySelector(`[data-poke="${inputBody.opponent_switch}"]`)) {
+      const tag = document.createElement('span');
+      tag.className = 'opp-poke-tag';
+      tag.dataset.poke = inputBody.opponent_switch;
+      tag.textContent = inputBody.opponent_switch;
+      list.appendChild(tag);
+    }
+  }
+  // サマリーからalive情報更新
+  const summary = out.battle_state_summary || '';
+  const m = summary.match(/自(\d+)体/);
+  const m2 = summary.match(/相手判明(\d+)体/);
+  if (m && m2) document.getElementById('alive-info').textContent = `自 ${m[1]}体 / 相手判明 ${m2[1]}体`;
+}
+
+function clearTurnForm() {
+  // チェックボックスをリセット
+  ['has-ability','has-my-switch','has-opp-switch'].forEach(id=>{
+    document.getElementById(id).checked = false;
+  });
+  ['ability-section','my-switch-section','opp-switch-section'].forEach(id=>{
+    document.getElementById(id).classList.remove('open');
+  });
+  // テキスト・数値フィールドをリセット
+  ['ab-name','ab-poke','opp-switch-to','opp-move','my-item-used','opp-item-used'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  document.getElementById('opp-move-my-hp').value='';
+  document.getElementById('my-hp-input').value='';
+  ['my-status-change','opp-status-change'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+}
+
+function addLog(msg) {
+  const log = document.getElementById('action-log');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.textContent = msg;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function endBattle() {
+  if (!confirm('バトルを終了してナビゲーターをリセットしますか？')) return;
+  try {
+    await api('/battle/reset','POST');
+  } catch(e) {}
+  turnNum = 1;
+  myPartyData = [];
+  oppPartyNames = [];
+  selectionRec = null;
+  slotCount = 0;
+  document.getElementById('party-slots').innerHTML = '';
+  document.getElementById('selection-result-area').style.display='none';
+  document.getElementById('goto-step3-btn').style.display='none';
+  document.getElementById('action-log').innerHTML='';
+  document.getElementById('rec-area').innerHTML='<div class="empty-state"><div style="font-size:32px;margin-bottom:8px;">⚔</div><div>ターン情報を入力して<br>「推薦を取得」を押してください</div></div>';
+  document.getElementById('opp-estimate-area').innerHTML='<div class="empty-state" style="padding:20px;">まだ情報がありません</div>';
+  [0,1,2,3,4,5].forEach(i=>{ const el=document.getElementById('opp'+i); if(el) el.value=''; });
+  goStep(1);
+  // スロットを6体分再初期化
+  for (let i = 0; i < 6; i++) addPokeSlot();
+}
+
+// ═══════════════════════════════════
+//  初期化
+// ═══════════════════════════════════
+window.onload = () => {
+  // 初期パーティスロット6体分
+  for (let i = 0; i < 6; i++) addPokeSlot();
+};
+</script>
+</body>
+</html>
