@@ -1,8 +1,7 @@
 # 改行コードを LF に統一（Windows でも）
 * text=auto eol=lf
-
 # バイナリファイル
-*.pt    binary
+*.pt filter=lfs diff=lfs merge=lfs -text
 *.pth   binary
 *.db    binary
 *.png   binary

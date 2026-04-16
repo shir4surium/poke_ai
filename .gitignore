@@ -15,7 +15,11 @@ venv/
 env/
 
 # PyTorch モデルファイル（大容量）
-ai/models/*.pt
+# rl_best.pt のみ Git LFS で管理するため除外しない
+ai/models/rl_iter_*.pt
+ai/models/rl_last.pt
+ai/models/policy_value_last.pt
+ai/models/world_model_last.pt
 ai/models/*.pth
 
 # データベース（シードから再生成可能）
