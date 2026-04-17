@@ -344,7 +344,7 @@ input.valid{border-color:var(--green)!important}
 </main>
 <script>
 const RENDER_URL='https://champions-ai-api.onrender.com';
-const API_URL=(()=>{const h=window.location.hostname;return(h=\'localhost\'||h===\'127.0.0.1\')?\'':RENDER_URL;})();
+const API_URL=(()=>{const h=window.location.hostname;return(h===\'localhost\'||h===\'127.0.0.1\')?\'':RENDER_URL;})();
 '''
 
 PART3 = r"""
@@ -396,16 +396,16 @@ function goStep(n){
 }
 function enterBattleMode(){
   appMode='battle';
-  document.getElementById('battle-next-btn').style.display='';
-  document.getElementById('party-only-back-btn').style.display='none';
   goStep(1);
+  const nb=document.getElementById('battle-next-btn');if(nb)nb.style.display='';
+  const bb=document.getElementById('party-only-back-btn');if(bb)bb.style.display='none';
   refreshPartySelect();
 }
 function enterPartyMode(){
   appMode='party';
-  document.getElementById('battle-next-btn').style.display='none';
-  document.getElementById('party-only-back-btn').style.display='';
   goStep(1);
+  const nb=document.getElementById('battle-next-btn');if(nb)nb.style.display='none';
+  const bb=document.getElementById('party-only-back-btn');if(bb)bb.style.display='';
   refreshPartySelect();
 }
 
@@ -513,7 +513,7 @@ function collectPartyData(){const party=[];for(let i=0;i<slotCount;i++){const n=
 async function submitParty(){const party=collectPartyData();if(party.length===0){showError('ポケモンを少なくとも1体選択してください');return;}try{await api('/setup/party','POST',{my_party:party});myPartyData=party;goStep(2);}catch(e){showError(e.message);}}
 
 // ── 相手パーティ入力コンボ初期化 ─────────────────────────
-(()=>{
+try{(()=>{
   const area=document.getElementById('opp-inputs-area');
   for(let i=0;i<6;i++){
     const d=document.createElement('div');d.className='field';
@@ -526,10 +526,10 @@ async function submitParty(){const party=collectPartyData();if(party.length===0)
   }
   // 交代先コンボ（バトル用）
   const oppSwEl=document.getElementById('opp-switch-to');
-  makeCombo(oppSwEl,POKEMON_NAMES,null);
+  if(oppSwEl)makeCombo(oppSwEl,POKEMON_NAMES,null);
   const abPokeEl=document.getElementById('ab-poke');
-  makeCombo(abPokeEl,POKEMON_NAMES,null);
-})();
+  if(abPokeEl)makeCombo(abPokeEl,POKEMON_NAMES,null);
+})();}catch(e){console.error('combo init error',e);}
 
 async function submitOpponent(){const names=[0,1,2,3,4,5].map(i=>document.getElementById('opp'+i)?.value.trim()).filter(Boolean);if(!names.length){showError('相手のポケモンを少なくとも1体入力してください');return;}try{const r=await api('/setup/opponent','POST',{opponent_party:names});oppPartyNames=names;selectionRec=r;showSelectionResult(r);document.getElementById('selection-result-area').style.display='block';document.getElementById('goto-step3-btn').style.display='';updateStep3Selects(r);}catch(e){showError(e.message);}}
 function showSelectionResult(r){const box=document.getElementById('selection-result-box'),ms=Math.max(...Object.values(r.scores));box.innerHTML=`<div class="text-muted" style="margin-bottom:6px">AIが推薦する選出（スコア順）</div><div class="selection-pills">${r.selected.map(n=>`<div class="pill ${n===r.lead?'lead':''}">${n===r.lead?'★ ':''}${n}</div>`).join('')}</div><div class="score-bars" style="margin-top:12px">${Object.entries(r.scores).map(([n,s])=>`<div class="score-row"><div class="score-name">${n}</div><div class="score-bar-wrap"><div class="score-bar" style="width:${Math.round(s/ms*100)}%"></div></div><div class="score-val">${s.toFixed(1)}</div></div><div style="font-size:11px;color:var(--text3);margin:-2px 0 5px 98px">${r.reasons[n]||''}</div>`).join('')}</div>`;}
