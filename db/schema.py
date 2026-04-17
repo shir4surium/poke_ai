@@ -37,7 +37,8 @@ def init_db():
             ability1    TEXT,
             ability2    TEXT,
             hidden_ability TEXT,
-            is_available INTEGER NOT NULL DEFAULT 1  -- チャンピオンズで使用可能か
+            is_available INTEGER NOT NULL DEFAULT 1,  -- チャンピオンズで使用可能か
+            regulation   TEXT                          -- レギュレーションタグ（例: champions-ma-1）
         )
     """)
 
