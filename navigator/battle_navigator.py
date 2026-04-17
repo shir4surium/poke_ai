@@ -328,6 +328,14 @@ class BattleNavigator:
             p1.active.item_jp = None
             p1.active.item_en = None
 
+        # メガシンカ
+        if inp.my_mega and p1.active:
+            p1.active.has_used_mega = True
+            p1.mega_used = True
+        if inp.opp_mega and p2.active:
+            p2.active.has_used_mega = True
+            p2.mega_used = True
+
     # ── 内部: 推薦生成 ────────────────────────────────────────────
 
     def _get_recommendations(self) -> list[ActionRecommendation]:

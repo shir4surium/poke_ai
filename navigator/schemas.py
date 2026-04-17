@@ -147,6 +147,8 @@ class TurnInput(BaseModel):
     opponent_action:         Optional[OpponentActionInput] = None
     my_item_consumed:        Optional[str] = None
     opponent_item_activated: Optional[str] = None
+    my_mega:                 bool = False   # 自分がこのターンにメガシンカした
+    opp_mega:                bool = False   # 相手がこのターンにメガシンカした
 
 
 # ===== 出力スキーマ =====

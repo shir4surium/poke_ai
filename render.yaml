@@ -2,7 +2,7 @@ services:
   - type: web
     name: champions-ai-api
     runtime: python
-    buildCommand: pip install -r requirements.txt && cd db && python schema.py && python seed_type_chart.py && cd ..
+    buildCommand: pip install -r requirements.txt && cd db && python schema.py && python seed_pokemon.py && python seed_type_chart.py && cd ..
     startCommand: uvicorn navigator.api:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
